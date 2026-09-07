@@ -15,7 +15,7 @@ if st.button("Analyze Code", type="primary"):
     if not code_input.strip():
         st.warning("Please enter valid source code.")
     elif not HF_TOKEN:
-        st.error("HF_TOKEN missing in Streamlit Secrets.")
+        st.error("HF_TOKEN missing in Streamlit Secrets! Please add your Hugging Face token in app settings.")
     else:
         with st.spinner("Analyzing code via Hugging Face..."):
             headers = {
@@ -41,7 +41,7 @@ if st.button("Analyze Code", type="primary"):
                     st.subheader("Model Review Feedback")
                     st.markdown(review_text)
                 elif response.status_code == 503:
-                    st.info("Model load ho raha hai Hugging Face par, 20 seconds baad dobara try karein.")
+                    st.info("Model load ho raha hai Hugging Face par, 20 seconds baad dobara Analyze click karein.")
                 else:
                     st.error(f"API Error {response.status_code}: {response.text}")
             except Exception as e:
