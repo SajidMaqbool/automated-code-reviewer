@@ -18,62 +18,55 @@ if st.button("Analyze Code", type="primary"):
     elif not GROQ_API_KEY:
         st.error("GROQ_API_KEY missing in Streamlit Secrets!")
     else:
-        with st.spinner("Finding optimal model & analyzing code..."):
+        with st.spinner("Analyzing code..."):
+            url = "https://api.groq.com/openai/v1/chat/completions"
             headers = {
                 "Authorization": f"Bearer {GROQ_API_KEY}",
                 "Content-Type": "application/json",
                 "User-Agent": "Mozilla/5.0"
             }
             
-            # Step 1: Fetch and filter ONLY standard Llama/Mixtral text models
-            active_model = None
-            try:
-                models_req = urllib.request.Request("https://api.groq.com/openai/v1/models", headers=headers, method="GET")
-                with urllib.request.urlopen(models_req) as response:
-                    models_data = json.loads(response.read().decode("utf-8"))
-                    available_models = [m["id"] for m in models_data.get("data", [])]
-                    
-                    # Filter specifically for general LLMs (Llama / Mixtral / Gemma)
-                    standard_llms = [
-                        m for m in available_models 
-                        if any(brand in m.lower() for brand in ["llama", "mixtral", "gemma"]) 
-                        and "canopy" not in m.lower() 
-                        and "guard" not in m.lower()
-                    ]
-                    
-                    if standard_llms:
-                        active_model = standard_llms[0]
-            except Exception:
-                pass
+            # Groq top active text models array
+            candidate_models = [
+                "mixtral-8x7b-32768",
+                "gemma2-9b-it",
+                "llama-3.3-70b-specdec",
+                "llama-3.1-70b-versatile",
+                "llama3-70b-8192"
+            ]
             
-            # Direct fallback if auto-detect misses
-            if not active_model:
-                active_model = "llama-3.1-8b-instant"
+            success = False
+            last_error = ""
 
-            # Step 2: Request completion
-            url = "https://api.groq.com/openai/v1/chat/completions"
-            payload = {
-                "model": active_model,
-                "messages": [
-                    {"role": "system", "content": "You are an expert AI Code Reviewer specializing in security and performance."},
-                    {"role": "user", "content": f"Instruction: {instruction}\n\nCode:\n{code_input}"}
-                ],
-                "temperature": 0.2,
-                "max_tokens": 1024
-            }
-            
-            data = json.dumps(payload).encode("utf-8")
-            req = urllib.request.Request(url, data=data, headers=headers, method="POST")
-            
-            try:
-                with urllib.request.urlopen(req) as response:
-                    res_body = response.read().decode("utf-8")
-                    result = json.loads(res_body)
-                    review_text = result["choices"][0]["message"]["content"]
-                    st.subheader(f"Model Review Feedback ({active_model})")
-                    st.markdown(review_text)
-            except urllib.error.HTTPError as e:
-                err_body = e.read().decode("utf-8")
-                st.error(f"HTTP Error {e.code}: {err_body}")
-            except Exception as e:
-                st.error(f"Execution Error: {e}")
+            for model_name in candidate_models:
+                payload = {
+                    "model": model_name,
+                    "messages": [
+                        {"role": "system", "content": "You are an expert AI Code Reviewer specializing in security and performance."},
+                        {"role": "user", "content": f"Instruction: {instruction}\n\nCode:\n{code_input}"}
+                    ],
+                    "temperature": 0.2,
+                    "max_tokens": 1024
+                }
+                
+                data = json.dumps(payload).encode("utf-8")
+                req = urllib.request.Request(url, data=data, headers=headers, method="POST")
+                
+                try:
+                    with urllib.request.urlopen(req) as response:
+                        res_body = response.read().decode("utf-8")
+                        result = json.loads(res_body)
+                        review_text = result["choices"][0]["message"]["content"]
+                        st.subheader(f"Model Review Feedback (Model: {model_name})")
+                        st.markdown(review_text)
+                        success = True
+                        break
+                except urllib.error.HTTPError as e:
+                    last_error = e.read().decode("utf-8")
+                    continue
+                except Exception as e:
+                    last_error = str(e)
+                    continue
+
+            if not success:
+                st.error(f"Failed to connect to active models. Last error response: {last_error}")
