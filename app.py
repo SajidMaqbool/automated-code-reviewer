@@ -5,8 +5,9 @@ st.set_page_config(page_title="AI Code Reviewer", layout="wide")
 st.title("⚡ AI-Driven Code Review Assistant")
 st.caption("Powered by Fine-Tuned Qwen2.5-Coder-1.5B via Hugging Face API")
 
-# Updated Hugging Face Router API URL
 API_URL = "https://router.huggingface.co/hf-inference/v1/chat/completions"
+
+# Safely load token ONLY from Streamlit Secrets
 HF_TOKEN = st.secrets.get("HF_TOKEN", "")
 
 instruction = st.text_input("Review Instruction", "Review this Python code snippet for security vulnerabilities or anti-patterns.")
@@ -15,10 +16,12 @@ code_input = st.text_area("Paste Python Code / Diff", height=220, value="import 
 if st.button("Analyze Code", type="primary"):
     if not code_input.strip():
         st.warning("Please enter valid source code.")
+    elif not HF_TOKEN:
+        st.error("HF_TOKEN not found in Streamlit Secrets. Please configure it in your app settings.")
     else:
         with st.spinner("Analyzing code via Hugging Face Inference..."):
             headers = {
-                "Authorization": f"Bearer {HF_TOKEN}",
+                "Authorization": f"Bearer {HF_TOKEN.strip()}",
                 "Content-Type": "application/json"
             }
             
