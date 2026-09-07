@@ -26,19 +26,18 @@ if st.button("Analyze Code", type="primary"):
                 "User-Agent": "Mozilla/5.0"
             }
             
-            # Groq top active text models array
-            candidate_models = [
-                "mixtral-8x7b-32768",
-                "gemma2-9b-it",
-                "llama-3.3-70b-specdec",
-                "llama-3.1-70b-versatile",
-                "llama3-70b-8192"
+            # Active Production Models supported on Groq
+            active_models = [
+                "llama-3.3-70b-versatile",
+                "llama-3.1-8b-instant",
+                "qwen-2.5-coder-32b",
+                "deepseek-r1-distill-llama-70b"
             ]
             
             success = False
             last_error = ""
 
-            for model_name in candidate_models:
+            for model_name in active_models:
                 payload = {
                     "model": model_name,
                     "messages": [
@@ -57,16 +56,17 @@ if st.button("Analyze Code", type="primary"):
                         res_body = response.read().decode("utf-8")
                         result = json.loads(res_body)
                         review_text = result["choices"][0]["message"]["content"]
-                        st.subheader(f"Model Review Feedback (Model: {model_name})")
+                        st.subheader(f"Model Review Feedback ({model_name})")
                         st.markdown(review_text)
                         success = True
                         break
                 except urllib.error.HTTPError as e:
                     last_error = e.read().decode("utf-8")
+                    # If model is deprecated or not found, try the next candidate
                     continue
                 except Exception as e:
                     last_error = str(e)
                     continue
 
             if not success:
-                st.error(f"Failed to connect to active models. Last error response: {last_error}")
+                st.error(f"Execution Error: {last_error}")
