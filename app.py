@@ -1,25 +1,12 @@
 import streamlit as st
-import torch
-from transformers import AutoModelForCausalLM, AutoTokenizer
-from peft import PeftModel
+import requests
 
 st.set_page_config(page_title="AI Code Reviewer", layout="wide")
 st.title("⚡ AI-Driven Code Review Assistant")
-st.caption("Powered by Fine-Tuned Qwen2.5-Coder-1.5B (LoRA Adapter)")
+st.caption("Powered by Qwen2.5-Coder-1.5B via Hugging Face Inference API")
 
-@st.cache_resource
-def load_model():
-    base_model_name = "Qwen/Qwen2.5-Coder-1.5B-Instruct"
-    adapter_name = "Baghiii/qwen2.5-coder-lora-reviewer"
-    
-    tokenizer = AutoTokenizer.from_pretrained(base_model_name)
-    base_model = AutoModelForCausalLM.from_pretrained(
-        base_model_name,
-        torch_dtype=torch.float16 if torch.cuda.is_available() else torch.float32,
-        device_map="auto" if torch.cuda.is_available() else None
-    )
-    model = PeftModel.from_pretrained(base_model, adapter_name)
-    return tokenizer, model
+API_URL = "https://api-inference.huggingface.co/models/Qwen/Qwen2.5-Coder-1.5B-Instruct"
+HF_TOKEN = st.secrets.get("HF_TOKEN", "").strip()
 
 instruction = st.text_input("Review Instruction", "Review this Python code snippet for security vulnerabilities or anti-patterns.")
 code_input = st.text_area("Paste Python Code / Diff", height=220, value="import os\ndef connect():\n    db_pass = '123456_secret'\n    return db_pass")
@@ -27,27 +14,35 @@ code_input = st.text_area("Paste Python Code / Diff", height=220, value="import 
 if st.button("Analyze Code", type="primary"):
     if not code_input.strip():
         st.warning("Please enter valid source code.")
+    elif not HF_TOKEN:
+        st.error("HF_TOKEN missing in Streamlit Secrets.")
     else:
-        with st.spinner("Loading model and generating code review..."):
+        with st.spinner("Analyzing code via Hugging Face..."):
+            headers = {
+                "Authorization": f"Bearer {HF_TOKEN}",
+                "Content-Type": "application/json"
+            }
+            
+            prompt = f"<|im_start|>system\nYou are an expert code reviewer.<|im_end|>\n<|im_start|>user\nInstruction: {instruction}\nCode:\n{code_input}<|im_end|>\n<|im_start|>assistant\n"
+            
+            payload = {
+                "inputs": prompt,
+                "parameters": {
+                    "max_new_tokens": 512,
+                    "return_full_text": False
+                }
+            }
+            
             try:
-                tokenizer, model = load_model()
-                
-                messages = [
-                    {"role": "system", "content": "You are an expert code reviewer."},
-                    {"role": "user", "content": f"Instruction: {instruction}\nCode:\n{code_input}"}
-                ]
-                
-                prompt = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
-                inputs = tokenizer(prompt, return_tensors="pt")
-                
-                if torch.cuda.is_available():
-                    inputs = {k: v.cuda() for k, v in inputs.items()}
-                
-                outputs = model.generate(**inputs, max_new_tokens=512)
-                response_text = tokenizer.decode(outputs[0][inputs['input_ids'].shape[1]:], skip_special_tokens=True)
-                
-                st.subheader("Model Review Feedback")
-                st.markdown(response_text)
-                
+                response = requests.post(API_URL, headers=headers, json=payload)
+                if response.status_code == 200:
+                    result = response.json()
+                    review_text = result[0]["generated_text"] if isinstance(result, list) else result
+                    st.subheader("Model Review Feedback")
+                    st.markdown(review_text)
+                elif response.status_code == 503:
+                    st.info("Model load ho raha hai Hugging Face par, 20 seconds baad dobara try karein.")
+                else:
+                    st.error(f"API Error {response.status_code}: {response.text}")
             except Exception as e:
-                st.error(f"Execution Error: {e}")
+                st.error(f"Connection Failed: {e}")
