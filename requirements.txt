@@ -1,0 +1,9 @@
+fastapi
+uvicorn
+torch
+transformers
+peft
+bitsandbytes
+pydantic
+streamlit
+requests
