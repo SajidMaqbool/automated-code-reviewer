@@ -3,7 +3,7 @@ import requests
 
 st.set_page_config(page_title="AI Code Reviewer", layout="wide")
 st.title("⚡ AI-Driven Code Review Assistant")
-st.caption("Powered by Qwen 2.5 Coder via Ultra-Fast API Backend")
+st.caption("Powered by Llama 3.3 70B via Groq API")
 
 GROQ_API_KEY = st.secrets.get("GROQ_API_KEY", "").strip()
 API_URL = "https://api.groq.com/openai/v1/chat/completions"
@@ -15,7 +15,7 @@ if st.button("Analyze Code", type="primary"):
     if not code_input.strip():
         st.warning("Please enter valid source code.")
     elif not GROQ_API_KEY:
-        st.error("GROQ_API_KEY missing in Streamlit Secrets! Please add your key in app settings.")
+        st.error("GROQ_API_KEY missing in Streamlit Secrets!")
     else:
         with st.spinner("Analyzing code..."):
             headers = {
@@ -24,9 +24,9 @@ if st.button("Analyze Code", type="primary"):
             }
             
             payload = {
-                "model": "qwen-2.5-coder-32b",
+                "model": "llama-3.3-70b-versatile",
                 "messages": [
-                    {"role": "system", "content": "You are an expert AI Code Reviewer."},
+                    {"role": "system", "content": "You are an expert AI Code Reviewer specializing in code security and optimization."},
                     {"role": "user", "content": f"Instruction: {instruction}\n\nCode:\n{code_input}"}
                 ],
                 "temperature": 0.2,
