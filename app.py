@@ -26,7 +26,6 @@ if st.button("Analyze Code", type="primary"):
                 "User-Agent": "Mozilla/5.0"
             }
             
-            # All valid Groq Chat Completion models
             candidate_models = [
                 "llama-3.3-70b-versatile",
                 "llama-3.1-8b-instant",
@@ -57,8 +56,20 @@ if st.button("Analyze Code", type="primary"):
                         res_body = response.read().decode("utf-8")
                         result = json.loads(res_body)
                         review_text = result["choices"][0]["message"]["content"]
-                        st.subheader(f"Model Review Feedback (Active Model: {model_name})")
+                        
+                        st.success(f"Review completed using Engine: **{model_name}**")
+                        st.subheader("📋 Model Review Feedback")
                         st.markdown(review_text)
+                        
+                        # Feature: Download Review as Markdown
+                        report_content = f"# AI Code Review Report\n\n**Engine Used:** {model_name}\n\n---\n\n{review_text}"
+                        st.download_button(
+                            label="📥 Download Review Report (.md)",
+                            data=report_content,
+                            file_name="code_review_report.md",
+                            mime="text/markdown"
+                        )
+                        
                         success = True
                         break
                 except urllib.error.HTTPError as e:
@@ -69,4 +80,4 @@ if st.button("Analyze Code", type="primary"):
                     continue
 
             if not success:
-                st.error(f"API Error (Check GROQ_API_KEY in Streamlit Secrets): {last_error}")
+                st.error(f"API Error: {last_error}")
