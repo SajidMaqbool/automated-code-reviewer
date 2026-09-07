@@ -3,11 +3,11 @@ import requests
 
 st.set_page_config(page_title="AI Code Reviewer", layout="wide")
 st.title("⚡ AI-Driven Code Review Assistant")
-st.caption("Powered by Fine-Tuned Qwen2.5-Coder-1.5B via Hugging Face API")
+st.caption("Powered by Fine-Tuned Qwen2.5-Coder-1.5B via Hugging Face Router API")
 
-# Direct Model Inference API Endpoint
-API_URL = "https://api-inference.huggingface.co/models/Baghiii/qwen2.5-coder-lora-reviewer"
-HF_TOKEN = st.secrets.get("HF_TOKEN", "")
+# Updated Hugging Face Router Endpoint
+API_URL = "https://router.huggingface.co/hf-inference/v1/chat/completions"
+HF_TOKEN = st.secrets.get("HF_TOKEN", "").strip()
 
 instruction = st.text_input("Review Instruction", "Review this Python code snippet for security vulnerabilities or anti-patterns.")
 code_input = st.text_area("Paste Python Code / Diff", height=220, value="import os\ndef connect():\n    db_pass = '123456_secret'\n    return db_pass")
@@ -16,36 +16,32 @@ if st.button("Analyze Code", type="primary"):
     if not code_input.strip():
         st.warning("Please enter valid source code.")
     elif not HF_TOKEN:
-        st.error("HF_TOKEN missing in Streamlit Secrets! Please add your Hugging Face token in app settings.")
+        st.error("HF_TOKEN missing! Streamlit Secrets mein HF_TOKEN key add karein.")
     else:
         with st.spinner("Analyzing code via Hugging Face Inference..."):
-            prompt = f"<|im_start|>system\nYou are an expert code reviewer.<|im_end|>\n<|im_start|>user\nInstruction: {instruction}\nCode:\n{code_input}<|im_end|>\n<|im_start|>assistant\n"
-            
             headers = {
-                "Authorization": f"Bearer {HF_TOKEN.strip()}",
+                "Authorization": f"Bearer {HF_TOKEN}",
                 "Content-Type": "application/json"
             }
             
             payload = {
-                "inputs": prompt,
-                "parameters": {
-                    "max_new_tokens": 512,
-                    "return_full_text": False
-                }
+                "model": "Baghiii/qwen2.5-coder-lora-reviewer",
+                "messages": [
+                    {"role": "system", "content": "You are an expert code reviewer."},
+                    {"role": "user", "content": f"Instruction: {instruction}\nCode:\n{code_input}"}
+                ],
+                "max_tokens": 512
             }
             
             try:
                 response = requests.post(API_URL, headers=headers, json=payload)
                 if response.status_code == 200:
                     result = response.json()
-                    if isinstance(result, list) and len(result) > 0:
-                        review_text = result[0].get("generated_text", "")
-                        st.subheader("Model Review Feedback")
-                        st.markdown(review_text)
-                    else:
-                        st.write(result)
+                    review_text = result["choices"][0]["message"]["content"]
+                    st.subheader("Model Review Feedback")
+                    st.markdown(review_text)
                 elif response.status_code == 503:
-                    st.info("Model currently loading on Hugging Face servers. Please wait 20 seconds and click Analyze again!")
+                    st.info("Model load ho raha hai Hugging Face par, 20-30 seconds baad dobara try karein.")
                 else:
                     st.error(f"API Error {response.status_code}: {response.text}")
             except Exception as e:
