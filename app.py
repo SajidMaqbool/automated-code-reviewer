@@ -1,9 +1,11 @@
 import streamlit as st
-from groq import Groq
+import json
+import urllib.request
+import urllib.error
 
 st.set_page_config(page_title="AI Code Reviewer", layout="wide")
 st.title("⚡ AI-Driven Code Review Assistant")
-st.caption("Powered by Groq Cloud Official SDK")
+st.caption("Powered by Groq API")
 
 GROQ_API_KEY = st.secrets.get("GROQ_API_KEY", "").strip()
 
@@ -16,28 +18,36 @@ if st.button("Analyze Code", type="primary"):
     elif not GROQ_API_KEY:
         st.error("GROQ_API_KEY missing in Streamlit Secrets!")
     else:
-        with st.spinner("Analyzing code via Groq..."):
+        with st.spinner("Analyzing code..."):
+            url = "https://api.groq.com/openai/v1/chat/completions"
+            headers = {
+                "Authorization": f"Bearer {GROQ_API_KEY}",
+                "Content-Type": "application/json"
+            }
+            
+            # Using current active Groq model
+            payload = {
+                "model": "llama-3.3-70b-versatile",
+                "messages": [
+                    {"role": "system", "content": "You are an expert AI Code Reviewer specializing in security and performance."},
+                    {"role": "user", "content": f"Instruction: {instruction}\n\nCode:\n{code_input}"}
+                ],
+                "temperature": 0.2,
+                "max_tokens": 1024
+            }
+            
+            data = json.dumps(payload).encode("utf-8")
+            req = urllib.request.Request(url, data=data, headers=headers, method="POST")
+            
             try:
-                # Initialize Official Client
-                client = Groq(api_key=GROQ_API_KEY)
-                
-                # Dynamic Model Selection from User's Account Scope
-                available_models = [m.id for m in client.models.list().data]
-                selected_model = available_models[0] if available_models else "llama-3.1-8b-instant"
-                
-                response = client.chat.completions.create(
-                    model=selected_model,
-                    messages=[
-                        {"role": "system", "content": "You are an expert AI Code Reviewer specializing in security and optimization."},
-                        {"role": "user", "content": f"Instruction: {instruction}\n\nCode:\n{code_input}"}
-                    ],
-                    temperature=0.2,
-                    max_tokens=1024
-                )
-                
-                review_text = response.choices[0].message.content
-                st.subheader(f"Model Review Feedback ({selected_model})")
-                st.markdown(review_text)
-                
+                with urllib.request.urlopen(req) as response:
+                    res_body = response.read().decode("utf-8")
+                    result = json.loads(res_body)
+                    review_text = result["choices"][0]["message"]["content"]
+                    st.subheader("Model Review Feedback")
+                    st.markdown(review_text)
+            except urllib.error.HTTPError as e:
+                err_body = e.read().decode("utf-8")
+                st.error(f"HTTP Error {e.code}: {err_body}")
             except Exception as e:
                 st.error(f"Execution Error: {e}")
