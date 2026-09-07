@@ -5,8 +5,8 @@ st.set_page_config(page_title="AI Code Reviewer", layout="wide")
 st.title("⚡ AI-Driven Code Review Assistant")
 st.caption("Powered by Fine-Tuned Qwen2.5-Coder-1.5B via Hugging Face API")
 
-# Updated API Endpoint URL with Baghiii repository
-API_URL = "https://api-inference.huggingface.co/models/Baghiii/qwen2.5-coder-lora-reviewer"
+# Updated Hugging Face Router API URL
+API_URL = "https://router.huggingface.co/hf-inference/v1/chat/completions"
 HF_TOKEN = st.secrets.get("HF_TOKEN", "")
 
 instruction = st.text_input("Review Instruction", "Review this Python code snippet for security vulnerabilities or anti-patterns.")
@@ -17,14 +17,25 @@ if st.button("Analyze Code", type="primary"):
         st.warning("Please enter valid source code.")
     else:
         with st.spinner("Analyzing code via Hugging Face Inference..."):
-            prompt = f"<|im_start|>system\nYou are an expert code reviewer.<|im_end|>\n<|im_start|>user\nInstruction: {instruction}\nCode:\n{code_input}<|im_end|>\n<|im_start|>assistant\n"
-            headers = {"Authorization": f"Bearer {HF_TOKEN}"} if HF_TOKEN else {}
+            headers = {
+                "Authorization": f"Bearer {HF_TOKEN}",
+                "Content-Type": "application/json"
+            }
+            
+            payload = {
+                "model": "Baghiii/qwen2.5-coder-lora-reviewer",
+                "messages": [
+                    {"role": "system", "content": "You are an expert code reviewer."},
+                    {"role": "user", "content": f"Instruction: {instruction}\nCode:\n{code_input}"}
+                ],
+                "max_tokens": 512
+            }
             
             try:
-                response = requests.post(API_URL, headers=headers, json={"inputs": prompt, "parameters": {"max_new_tokens": 512}})
+                response = requests.post(API_URL, headers=headers, json=payload)
                 if response.status_code == 200:
                     result = response.json()
-                    review_text = result[0]["generated_text"].split("<|im_start|>assistant\n")[-1]
+                    review_text = result["choices"][0]["message"]["content"]
                     st.subheader("Model Review Feedback")
                     st.markdown(review_text)
                 else:
