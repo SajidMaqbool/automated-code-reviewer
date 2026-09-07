@@ -18,14 +18,14 @@ if st.button("Analyze Code", type="primary"):
     elif not GROQ_API_KEY:
         st.error("GROQ_API_KEY missing in Streamlit Secrets!")
     else:
-        with st.spinner("Fetching active models & analyzing code..."):
+        with st.spinner("Finding optimal model & analyzing code..."):
             headers = {
                 "Authorization": f"Bearer {GROQ_API_KEY}",
                 "Content-Type": "application/json",
                 "User-Agent": "Mozilla/5.0"
             }
             
-            # Step 1: Fetch list of models available to YOUR API key dynamically
+            # Step 1: Fetch and filter ONLY standard Llama/Mixtral text models
             active_model = None
             try:
                 models_req = urllib.request.Request("https://api.groq.com/openai/v1/models", headers=headers, method="GET")
@@ -33,18 +33,24 @@ if st.button("Analyze Code", type="primary"):
                     models_data = json.loads(response.read().decode("utf-8"))
                     available_models = [m["id"] for m in models_data.get("data", [])]
                     
-                    # Filter for active LLM text completion models
-                    text_models = [m for m in available_models if "whisper" not in m and "safetensors" not in m]
-                    if text_models:
-                        active_model = text_models[0]
-            except Exception as e:
-                st.warning(f"Could not fetch models dynamically: {e}")
+                    # Filter specifically for general LLMs (Llama / Mixtral / Gemma)
+                    standard_llms = [
+                        m for m in available_models 
+                        if any(brand in m.lower() for brand in ["llama", "mixtral", "gemma"]) 
+                        and "canopy" not in m.lower() 
+                        and "guard" not in m.lower()
+                    ]
+                    
+                    if standard_llms:
+                        active_model = standard_llms[0]
+            except Exception:
+                pass
             
-            # Fallback if listing models fails
+            # Direct fallback if auto-detect misses
             if not active_model:
                 active_model = "llama-3.1-8b-instant"
 
-            # Step 2: Make the code review call with the guaranteed active model
+            # Step 2: Request completion
             url = "https://api.groq.com/openai/v1/chat/completions"
             payload = {
                 "model": active_model,
@@ -64,7 +70,7 @@ if st.button("Analyze Code", type="primary"):
                     res_body = response.read().decode("utf-8")
                     result = json.loads(res_body)
                     review_text = result["choices"][0]["message"]["content"]
-                    st.subheader(f"Model Review Feedback (Using: {active_model})")
+                    st.subheader(f"Model Review Feedback ({active_model})")
                     st.markdown(review_text)
             except urllib.error.HTTPError as e:
                 err_body = e.read().decode("utf-8")
