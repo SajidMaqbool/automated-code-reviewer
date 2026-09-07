@@ -3,7 +3,7 @@ import requests
 
 st.set_page_config(page_title="AI Code Reviewer", layout="wide")
 st.title("⚡ AI-Driven Code Review Assistant")
-st.caption("Powered by Llama 3.1 8B via Groq API")
+st.caption("Powered by Llama 3 via Groq API")
 
 GROQ_API_KEY = st.secrets.get("GROQ_API_KEY", "").strip()
 API_URL = "https://api.groq.com/openai/v1/chat/completions"
@@ -23,10 +23,11 @@ if st.button("Analyze Code", type="primary"):
                 "Content-Type": "application/json"
             }
             
+            # Universal production model supported across all Groq keys
             payload = {
-                "model": "llama-3.1-8b-instant",
+                "model": "llama3-8b-8192",
                 "messages": [
-                    {"role": "system", "content": "You are an expert AI Code Reviewer specializing in code security and optimization."},
+                    {"role": "system", "content": "You are an expert AI Code Reviewer specializing in security and performance."},
                     {"role": "user", "content": f"Instruction: {instruction}\n\nCode:\n{code_input}"}
                 ],
                 "temperature": 0.2,
